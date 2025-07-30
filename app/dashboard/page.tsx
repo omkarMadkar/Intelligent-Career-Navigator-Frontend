@@ -150,10 +150,12 @@ export default function Dashboard() {
               </div>
               <h3 className="font-semibold mb-2">Upload Resume</h3>
               <p className="text-sm text-gray-600 mb-4">Get AI-powered feedback and scoring</p>
-              <Button className="w-full bg-black hover:bg-gray-800">
-                <Upload className="h-4 w-4 mr-2" />
-                Analyze Resume
-              </Button>
+              <Link href="/resume-analysis">
+                <Button className="w-full bg-black hover:bg-gray-800">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Analyze Resume
+                </Button>
+              </Link>
               <p className="text-xs text-gray-500 mt-2">Last upload: 2 days ago (Score: 87/100)</p>
             </CardContent>
           </Card>

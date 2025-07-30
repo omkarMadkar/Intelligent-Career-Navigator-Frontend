@@ -1,79 +1,153 @@
 "use client"
 
+import { useState, useCallback } from "react"
 import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { Upload, Download, Eye, CheckCircle, AlertTriangle, XCircle, Info, TrendingUp, FileText } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
+import { 
+  Upload, 
+  Download, 
+  Eye, 
+  CheckCircle, 
+  AlertTriangle, 
+  XCircle, 
+  Info, 
+  TrendingUp, 
+  FileText,
+  Loader2,
+  X,
+  RefreshCw,
+  Star,
+  Target,
+  Award,
+  Lightbulb
+} from "lucide-react"
+import { useDropzone } from "react-dropzone"
 
-// Mock feedback data matching the design
-const feedbackData = {
-  strengths: [
-    { id: 1, category: "Strong Action Verbs", type: "good", message: "Excellent use of action verbs throughout" },
-    { id: 2, category: "Clean Layout", type: "good", message: "Professional formatting and structure" },
-    { id: 3, category: "ATS Compatible", type: "good", message: "Resume is ATS-friendly" },
-    { id: 4, category: "Good Keywords", type: "good", message: "Strong keyword optimization" },
-    { id: 5, category: "Contact Info Complete", type: "good", message: "All contact information present" },
-    { id: 6, category: "Education Clear", type: "good", message: "Education section well-structured" },
-    { id: 7, category: "Skills Relevant", type: "good", message: "Technical skills are relevant" },
-    { id: 8, category: "Experience Well-Structured", type: "good", message: "Work experience clearly presented" },
-  ],
-  warnings: [
-    { id: 9, category: "Missing Leadership", type: "warning", message: "Consider adding leadership examples" },
-    { id: 10, category: "Too Long (2.5 pages)", type: "warning", message: "Resume should be 1-2 pages maximum" },
-  ],
-  critical: [
-    {
-      id: 11,
-      category: "Needs Quantified Results",
-      type: "critical",
-      message: "Add specific numbers and metrics to achievements",
-    },
-  ],
-  suggestions: [
-    {
-      id: 12,
-      category: "Missing Certifications",
-      type: "suggestion",
-      message: "Consider adding relevant certifications",
-    },
-  ],
+// Types for resume analysis
+interface ResumeAnalysis {
+  id: string
+  fileName: string
+  uploadDate: string
+  overallScore: number
+  readinessScore: number
+  feedback: {
+    strengths: FeedbackItem[]
+    warnings: FeedbackItem[]
+    critical: FeedbackItem[]
+    suggestions: FeedbackItem[]
+  }
+  sections: {
+    contact: SectionScore
+    summary: SectionScore
+    experience: SectionScore
+    education: SectionScore
+    skills: SectionScore
+    formatting: SectionScore
+  }
+  keywords: {
+    found: string[]
+    missing: string[]
+    industry: string
+  }
+  atsCompatibility: {
+    score: number
+    issues: string[]
+  }
+  suggestions: string[]
 }
 
-const allFeedback = [
-  ...feedbackData.strengths,
-  ...feedbackData.warnings,
-  ...feedbackData.critical,
-  ...feedbackData.suggestions,
-]
+interface FeedbackItem {
+  id: string
+  category: string
+  type: "good" | "warning" | "critical" | "suggestion"
+  message: string
+  priority: "high" | "medium" | "low"
+  impact: number
+}
 
-const contentFeedback = allFeedback.filter((item) =>
-  ["Strong Action Verbs", "Good Keywords", "Needs Quantified Results", "Missing Leadership"].includes(item.category),
-)
+interface SectionScore {
+  score: number
+  feedback: string[]
+  suggestions: string[]
+}
 
-const formatFeedback = allFeedback.filter((item) =>
-  ["Clean Layout", "Too Long (2.5 pages)", "ATS Compatible"].includes(item.category),
-)
-
-const technicalFeedback = allFeedback.filter((item) =>
-  ["Skills Relevant", "Contact Info Complete", "Education Clear"].includes(item.category),
-)
-
-const enhancementFeedback = allFeedback.filter((item) =>
-  ["Missing Certifications", "Experience Well-Structured"].includes(item.category),
-)
-
-const versionHistory = [
-  { id: 1, name: "Resume_v3.pdf", date: "2024-01-15", score: 87, status: "current" },
-  { id: 2, name: "Resume_v2.pdf", date: "2024-01-10", score: 82, status: "previous" },
-  { id: 3, name: "Resume_v1.pdf", date: "2024-01-05", score: 75, status: "previous" },
-]
+// Real API function for resume analysis
+const analyzeResume = async (file: File): Promise<ResumeAnalysis> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('industry', 'Software Development') // You can make this dynamic
+  
+  const response = await fetch('/api/resume-analysis', {
+    method: 'POST',
+    body: formData
+  })
+  
+  if (!response.ok) {
+    throw new Error('Failed to analyze resume')
+  }
+  
+  const result = await response.json()
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Analysis failed')
+  }
+  
+  return result.data
+}
 
 export default function ResumeAnalysisPage() {
-  const resumeScore = 87
-  const readinessPercentage = 75
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    if (file) {
+      setUploadedFile(file)
+      setError(null)
+      handleAnalyze(file)
+    }
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
+    multiple: false,
+    maxSize: 5 * 1024 * 1024 // 5MB
+  })
+
+  const handleAnalyze = async (file: File) => {
+    setIsAnalyzing(true)
+    setError(null)
+    
+    try {
+      const result = await analyzeResume(file)
+      setAnalysis(result)
+    } catch (err) {
+      setError("Failed to analyze resume. Please try again.")
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleRetry = () => {
+    if (uploadedFile) {
+      handleAnalyze(uploadedFile)
+    }
+  }
 
   const getStatusIcon = (type: string) => {
     switch (type) {
@@ -105,14 +179,34 @@ export default function ResumeAnalysisPage() {
     }
   }
 
-  const renderFeedbackItems = (items: typeof allFeedback) => (
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return "text-green-600"
+    if (score >= 80) return "text-blue-600"
+    if (score >= 70) return "text-yellow-600"
+    return "text-red-600"
+  }
+
+  const renderFeedbackItems = (items: FeedbackItem[]) => (
     <div className="space-y-3">
       {items.map((item) => (
-        <div key={item.id} className={`flex items-start gap-3 p-3 rounded-lg border ${getStatusColor(item.type)}`}>
-          {getStatusIcon(item.type)}
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm">{item.category}</p>
-            <p className="text-xs mt-1 opacity-80">{item.message}</p>
+        <div
+          key={item.id}
+          className={`p-3 rounded-lg border ${getStatusColor(item.type)}`}
+        >
+          <div className="flex items-start gap-3">
+            {getStatusIcon(item.type)}
+            <div className="flex-1">
+              <h4 className="font-medium text-sm">{item.category}</h4>
+              <p className="text-sm mt-1">{item.message}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-xs">
+                  Impact: {item.impact}/10
+                </Badge>
+                <Badge variant="outline" className="text-xs capitalize">
+                  {item.priority}
+                </Badge>
+              </div>
+            </div>
           </div>
         </div>
       ))}
@@ -123,149 +217,267 @@ export default function ResumeAnalysisPage() {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
 
-      {/* Header Section */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Resume Analysis</h1>
-              <p className="text-gray-600 mt-1">Get AI-powered feedback to optimize your resume</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{readinessPercentage}% Ready</span>
-                <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 transition-all duration-300"
-                    style={{ width: `${readinessPercentage}%` }}
-                  />
-                </div>
-              </div>
-              <Button className="gap-2 bg-black hover:bg-gray-800">
-                <Upload className="h-4 w-4" />
-                Upload Resume
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Resume Score - Left Column */}
-          <Card className="border border-gray-200 bg-white">
-            <CardHeader>
-              <CardTitle className="text-center">Resume Score</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              {/* Circular Progress */}
-              <div className="relative w-32 h-32 mb-6">
-                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-gray-200 stroke-current"
-                    strokeWidth="3"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-blue-500 stroke-current"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    fill="none"
-                    strokeDasharray={`${resumeScore}, 100`}
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-gray-900">{resumeScore}</span>
-                  <span className="text-sm text-gray-500">out of 100</span>
-                </div>
-              </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Resume Analysis</h1>
+          <p className="text-gray-600">
+            Upload your resume for AI-powered analysis and get detailed feedback to improve your chances of landing interviews.
+          </p>
+        </div>
 
-              <div className="text-center mb-6">
-                <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200 mb-2">
-                  Good
-                </Badge>
-                <p className="text-sm text-gray-600">
-                  Your resume scores above average! A few improvements could get you to 95+.
-                </p>
-              </div>
-
-              <div className="w-full space-y-3">
-                <Button className="w-full gap-2 bg-black hover:bg-gray-800">
-                  <Download className="h-4 w-4" />
-                  Download Report
-                </Button>
-                <Button className="w-full gap-2 bg-transparent" variant="outline">
-                  <Eye className="h-4 w-4" />
-                  Preview Resume
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI Feedback - Right Column */}
+        {!analysis && !isAnalyzing && (
           <Card className="border border-gray-200 bg-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                AI Feedback Analysis
+                <FileText className="h-5 w-5" />
+                Upload Your Resume
               </CardTitle>
-              <p className="text-sm text-gray-600">Interactive feedback organized by category</p>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="all" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="content">Content</TabsTrigger>
-                  <TabsTrigger value="format">Format</TabsTrigger>
-                  <TabsTrigger value="technical">Technical</TabsTrigger>
-                  <TabsTrigger value="enhancement">Enhancement</TabsTrigger>
-                </TabsList>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                {isDragActive ? (
+                  <p className="text-lg font-medium text-blue-600">Drop your resume here...</p>
+                ) : (
+                  <div>
+                    <p className="text-lg font-medium text-gray-900 mb-2">
+                      Drag & drop your resume here, or click to browse
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Supports PDF, DOC, DOCX (Max 5MB)
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {error && (
+                <Alert className="mt-4 border-red-200 bg-red-50">
+                  <XCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                <TabsContent value="all" className="mt-6">
-                  {renderFeedbackItems(allFeedback)}
-                </TabsContent>
-
-                <TabsContent value="content" className="mt-6">
-                  {renderFeedbackItems(contentFeedback)}
-                </TabsContent>
-
-                <TabsContent value="format" className="mt-6">
-                  {renderFeedbackItems(formatFeedback)}
-                </TabsContent>
-
-                <TabsContent value="technical" className="mt-6">
-                  {renderFeedbackItems(technicalFeedback)}
-                </TabsContent>
-
-                <TabsContent value="enhancement" className="mt-6">
-                  {renderFeedbackItems(enhancementFeedback)}
-                </TabsContent>
-              </Tabs>
-
-              {/* Summary Stats */}
-              <div className="grid grid-cols-4 gap-4 mt-8 pt-6 border-t">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">8</div>
-                  <div className="text-sm text-gray-600">Strengths</div>
+        {isAnalyzing && (
+          <Card className="border border-gray-200 bg-white">
+            <CardContent className="p-8 text-center">
+              <Loader2 className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">Analyzing Your Resume...</h3>
+              <p className="text-gray-600 mb-6">
+                Our AI is reviewing your resume for content, formatting, and ATS compatibility.
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Extracting content and structure</span>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">2</div>
-                  <div className="text-sm text-gray-600">Warnings</div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  <span>Analyzing keywords and skills</span>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">1</div>
-                  <div className="text-sm text-gray-600">Critical</div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  <span>Checking ATS compatibility</span>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">1</div>
-                  <div className="text-sm text-gray-600">Suggestions</div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  <span>Generating personalized feedback</span>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        )}
+
+        {analysis && (
+          <div className="space-y-6">
+            {/* Overall Score Card */}
+            <Card className="border border-gray-200 bg-white">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Analysis Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className={`text-4xl font-bold mb-2 ${getScoreColor(analysis.overallScore)}`}>
+                      {analysis.overallScore}/100
+                    </div>
+                    <p className="text-sm text-gray-600">Overall Score</p>
+                    <div className="mt-2">
+                      <Progress value={analysis.overallScore} className="h-2" />
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <div className={`text-4xl font-bold mb-2 ${getScoreColor(analysis.readinessScore)}`}>
+                      {analysis.readinessScore}%
+                    </div>
+                    <p className="text-sm text-gray-600">Interview Readiness</p>
+                    <div className="mt-2">
+                      <Progress value={analysis.readinessScore} className="h-2" />
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <div className={`text-4xl font-bold mb-2 ${getScoreColor(analysis.atsCompatibility.score)}`}>
+                      {analysis.atsCompatibility.score}/100
+                    </div>
+                    <p className="text-sm text-gray-600">ATS Compatibility</p>
+                    <div className="mt-2">
+                      <Progress value={analysis.atsCompatibility.score} className="h-2" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">{analysis.fileName}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" size="sm" onClick={handleRetry}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Re-analyze
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Report
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Analysis Tabs */}
+            <Card className="border border-gray-200 bg-white">
+              <CardHeader>
+                <CardTitle>Detailed Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="feedback" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                    <TabsTrigger value="sections">Sections</TabsTrigger>
+                    <TabsTrigger value="keywords">Keywords</TabsTrigger>
+                    <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="feedback" className="mt-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold mb-4 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          Strengths ({analysis.feedback.strengths.length})
+                        </h3>
+                        {renderFeedbackItems(analysis.feedback.strengths)}
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold mb-4 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                          Areas for Improvement ({analysis.feedback.warnings.length + analysis.feedback.critical.length})
+                        </h3>
+                        {renderFeedbackItems([...analysis.feedback.warnings, ...analysis.feedback.critical])}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="sections" className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Object.entries(analysis.sections).map(([section, data]) => (
+                        <Card key={section} className="border border-gray-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium capitalize">{section}</h4>
+                              <div className={`text-lg font-bold ${getScoreColor(data.score)}`}>
+                                {data.score}/100
+                              </div>
+                            </div>
+                            <Progress value={data.score} className="h-2 mb-3" />
+                            <div className="space-y-2">
+                              {data.feedback.map((item, index) => (
+                                <div key={index} className="text-xs text-gray-600 flex items-center gap-1">
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                  {item}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="keywords" className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card className="border border-gray-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg">Found Keywords</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex flex-wrap gap-2">
+                            {analysis.keywords.found.map((keyword) => (
+                              <Badge key={keyword} variant="secondary" className="bg-green-100 text-green-700">
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="border border-gray-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg">Missing Keywords</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex flex-wrap gap-2">
+                            {analysis.keywords.missing.map((keyword) => (
+                              <Badge key={keyword} variant="outline" className="border-red-200 text-red-700">
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-3">
+                            Industry: <span className="font-medium">{analysis.keywords.industry}</span>
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="suggestions" className="mt-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-yellow-500" />
+                        Actionable Suggestions
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {analysis.suggestions.map((suggestion, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                            <Award className="h-4 w-4 text-blue-600 mt-0.5" />
+                            <p className="text-sm text-blue-900">{suggestion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   )
