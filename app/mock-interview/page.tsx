@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Video, Users, MessageSquare, Crown, Play, Wifi, Lightbulb, Camera, Mic, Volume2 } from "lucide-react"
+import Link from "next/link"
 
 export default function MockInterviewPage() {
   return (
@@ -164,10 +165,12 @@ export default function MockInterviewPage() {
               </div>
 
               {/* Start Interview Button */}
-              <Button className="w-full bg-black hover:bg-gray-800 text-lg py-3">
-                <Play className="h-5 w-5 mr-2" />
-                Start Interview
-              </Button>
+              <Link href="https://aiinc-interview.netlify.app/" target="_blank" rel="noopener noreferrer">
+                <Button className="w-full bg-black hover:bg-gray-800 text-lg py-3">
+                  <Play className="h-5 w-5 mr-2" />
+                  Start Interview
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
