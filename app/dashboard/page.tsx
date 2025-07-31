@@ -164,9 +164,17 @@ export default function Dashboard() {
               </div>
               <h3 className="font-semibold mb-2">Try Mock Interview</h3>
               <p className="text-sm text-gray-600 mb-4">Practice with AI interviewer</p>
+              <a href="https://aiinc-interview.netlify.app/" target="_blank" rel="noopener noreferrer" className="block mt-4">
+
               <Button variant="outline" className="w-full bg-transparent">
                 Start Interview
               </Button>
+              {/* <a href="https://aiinc-interview.netlify.app/" target="_blank" rel="noopener noreferrer" className="block mt-4"> */}
+                {/* <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" type="button">
+                  <Video className="h-4 w-4 mr-2" />
+                  Try AI Mock Interview (External)
+                </Button> */}
+              </a>
               <p className="text-xs text-gray-500 mt-2">Free tier: 1 interview/month remaining</p>
             </CardContent>
           </Card>

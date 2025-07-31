@@ -164,10 +164,18 @@ export default function MockInterviewPage() {
               </div>
 
               {/* Start Interview Button */}
+              <a href="https://aiinc-interview.netlify.app/" target="_blank" rel="noopener noreferrer" className="block mt-4">
+
               <Button className="w-full bg-black hover:bg-gray-800 text-lg py-3">
                 <Play className="h-5 w-5 mr-2" />
                 Start Interview
               </Button>
+              {/* <a href="https://aiinc-interview.netlify.app/" target="_blank" rel="noopener noreferrer" className="block mt-4"> */}
+                {/* <Button className="w-full bg-purple-600 hover:bg-purple-700 text-lg py-3" type="button">
+                  <Video className="h-5 w-5 mr-2" />
+                  Try AI Mock Interview (External)
+                </Button> */}
+              </a>
             </CardContent>
           </Card>
         </div>
